@@ -352,7 +352,7 @@ HB_FUNC( SSH2_FTP_READDIR )
 HB_FUNC( SSH2_FTP_OPENFILE )
 {
    hb_ssh2_FtpOpenFile( (HB_SSH2_SESSION*) hb_parptr( 1 ), hb_parc(2),
-      (ubsigned long) hb_parnl(3), hb_parnl(4) );
+      (unsigned long) hb_parnl(3), hb_parnl(4) );
 }
 
 #endif
