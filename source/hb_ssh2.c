@@ -38,17 +38,17 @@ HB_SSH2_SESSION * hb_ssh2_init( const char *hostname, int iPort, int iNonBlockin
     unsigned long hostaddr;
     struct sockaddr_in sin;
     int rc;
+#ifdef WIN32
+    WSADATA wsadata;
+#endif
 
     memset( pSess, 0, sizeof( HB_SSH2_SESSION ) );
 
 #ifdef WIN32
-    WSADATA wsadata;
-    int err;
-
-    err = WSAStartup(MAKEWORD(2, 0), &wsadata);
-    if(err != 0) {
-        //fprintf(stderr, "WSAStartup failed with error: %d\n", err);
-        return 1;
+    rc = WSAStartup(MAKEWORD(2, 0), &wsadata);
+    if( rc != 0 ) {
+       pSess->iRes = -99;
+       return pSess;
     }
 #endif
 
@@ -155,11 +155,10 @@ void hb_ssh2_OpenChannel( HB_SSH2_SESSION * pSess )
 
 void hb_ssh2_CloseChannel( HB_SSH2_SESSION * pSess )
 {
-    int rc;
 
     if( !pSess->channel )
        return;
-    while( (rc = libssh2_channel_close( pSess->channel) ) == LIBSSH2_ERROR_EAGAIN)
+    while( libssh2_channel_close( pSess->channel ) == LIBSSH2_ERROR_EAGAIN )
         hb_ssh2_WaitSocket(pSess->sock, pSess->session);
 
 #if 0
@@ -266,6 +265,7 @@ int hb_ssh2_FtpReadDir( HB_SSH2_SESSION * pSess, char * cName, int iLen,
    if( rc )
    {
       *pSize = (attrs.flags & LIBSSH2_SFTP_ATTR_SIZE)? attrs.filesize : 0;
+      //*pSize = attrs.filesize;
       *pTime = (attrs.flags & LIBSSH2_SFTP_ATTR_ACMODTIME)? attrs.mtime : 0;
       *pAttrs = (attrs.flags & LIBSSH2_SFTP_ATTR_PERMISSIONS)? attrs.permissions : 0;
    }
@@ -340,13 +340,15 @@ HB_FUNC( SSH2_FTP_READDIR )
    unsigned long ulAttrs;
    int rc = hb_ssh2_FtpReadDir( (HB_SSH2_SESSION*) hb_parptr( 1 ), mem, sizeof(mem),
       &ulSize, &ulTime, &ulAttrs );
-   if(rc > 0) {
+
+   if( rc > 0 ) {
       hb_stornl( ulSize, 2 );
       hb_stornl( ulTime, 3 );
       hb_stornl( ulAttrs, 4 );
       hb_retc( mem );
    }
-   hb_ret;
+   else
+      hb_ret();
 }
 
 HB_FUNC( SSH2_FTP_OPENFILE )

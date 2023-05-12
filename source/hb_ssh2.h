@@ -1,6 +1,12 @@
+
 #include "libssh2_config.h"
+#ifdef WIN32
+#include "libssh2.h"
+#include "libssh2_sftp.h"
+#else
 #include <libssh2.h>
 #include <libssh2_sftp.h>
+#endif
 
 #ifdef HAVE_WINSOCK2_H
 #include <winsock2.h>
