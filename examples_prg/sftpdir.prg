@@ -43,18 +43,14 @@ FUNCTION Main( cAddr, cDir )
       RETURN Nil
    ENDIF
 
-   ssh2_ftp_Init( pSess )
-
-   IF ssh2_LastErr( pSess ) == 0
-      ssh2_ftp_OpenDir( pSess, cDir )
-      IF ssh2_LastErr( pSess ) == 0
-         ? cDir + " opened"
-         ? "-----"
-         DO WHILE !Empty( cName := ssh2_ftp_ReadDir( pSess, @nSize, @dDate, @nAttr ) )
-            ? nSize, hb_strShrink( hb_ttoc(dDate),4 ), nAttr, cName
-         ENDDO
-         ? "-----"
-      ENDIF
+   IF ssh2_Sftp_Init( pSess ) == 0 .AND. ;
+      ssh2_Sftp_OpenDir( pSess, cDir ) == 0
+      ? cDir + " opened"
+      ? "-----"
+      DO WHILE !Empty( cName := ssh2_Sftp_ReadDir( pSess, @nSize, @dDate, @nAttr ) )
+         ? nSize, hb_strShrink( hb_ttoc(dDate),4 ), nAttr, cName
+      ENDDO
+      ? "-----"
    ELSE
       ? "ftpInit failed"
    ENDIF
