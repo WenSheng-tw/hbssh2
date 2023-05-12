@@ -63,6 +63,7 @@ int hb_ssh2_LoginPass( HB_SSH2_SESSION *, const char *, const char * );
 void hb_ssh2_OpenChannel( HB_SSH2_SESSION * );
 void hb_ssh2_CloseChannel( HB_SSH2_SESSION * );
 void hb_ssh2_Exec( HB_SSH2_SESSION *, const char * );
+char * hb_ssh2_ChannelRead( HB_SSH2_SESSION * );
 void hb_ssh2_FtpInit( HB_SSH2_SESSION * );
 void hb_ssh2_FtpOpenDir( HB_SSH2_SESSION *, const char * );
 void hb_ssh2_FtpClose( HB_SSH2_SESSION * );

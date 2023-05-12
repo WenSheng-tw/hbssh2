@@ -210,42 +210,50 @@ void hb_ssh2_Exec( HB_SSH2_SESSION * pSess, const char *commandline )
 {
    int rc;
 
-   while( ( rc =
-               libssh2_channel_exec( pSess->channel,
+   while( ( rc = libssh2_channel_exec( pSess->channel,
                      commandline ) ) == LIBSSH2_ERROR_EAGAIN )
-   {
       hb_ssh2_WaitSocket( pSess->sock, pSess->session );
-   }
    if( rc != 0 )
-   {
       pSess->iRes = -1;
-      return;
-   }
+   return;
+}
+
+char * hb_ssh2_ChannelRead( HB_SSH2_SESSION * pSess )
+{
+
+   int nBuffSize = 4000;
+   char buffer[nBuffSize], *pOut = NULL;
+   int iBytesRead = 0, iBytesReadAll = 0;
+   int iOutFirst = 1;
+   int rc;
+
    for( ;; )
    {
-      /* loop until we block */
       do
       {
-         char buffer[0x4000];
-         rc = libssh2_channel_read( pSess->channel, buffer, sizeof( buffer ) );
+         rc = libssh2_channel_read( pSess->channel, buffer+iBytesRead, nBuffSize-iBytesRead );
 
          if( rc > 0 )
          {
-            int i;
-            for( i = 0; i < rc; ++i )
-               fputc( buffer[i], stderr );
-            fprintf( stderr, "\n" );
+            iBytesRead += rc;
          }
-#if 0
-         else
-         {
-            if( rc != LIBSSH2_ERROR_EAGAIN )
-               // no need to output this for the EAGAIN case
-               fprintf( stderr, "libssh2_channel_read returned %d\n", rc );
-         }
-#endif
       }
-      while( rc > 0 );
+      while( rc > 0 && iBytesRead < nBuffSize );
+
+      if( iOutFirst )
+      {
+         pOut = (char*) malloc( iBytesRead + 1 );
+         memcpy( pOut, buffer, iBytesRead );
+         iOutFirst = 0;
+      }
+      else
+      {
+         pOut = ( char * ) realloc( pOut, iBytesReadAll + iBytesRead + 1 );
+         memcpy( pOut+iBytesReadAll, buffer, iBytesRead );
+      }
+      iBytesReadAll += iBytesRead;
+      pOut[iBytesReadAll] = '\0';
+      iBytesRead = 0;
 
       /* this is due to blocking that would occur otherwise so we loop on
          this condition */
@@ -256,6 +264,8 @@ void hb_ssh2_Exec( HB_SSH2_SESSION * pSess, const char *commandline )
       else
          break;
    }
+
+   return pOut;
 }
 
 void hb_ssh2_FtpInit( HB_SSH2_SESSION * pSess )
@@ -393,6 +403,65 @@ HB_FUNC( SSH2_FTP_OPENFILE )
 {
    hb_ssh2_FtpOpenFile( ( HB_SSH2_SESSION * ) hb_parptr( 1 ), hb_parc( 2 ),
          ( unsigned long ) hb_parnl( 3 ), hb_parnl( 4 ) );
+}
+
+HB_FUNC( SSH2_FTP_EXEC )
+{
+   hb_ssh2_Exec( ( HB_SSH2_SESSION * ) hb_parptr( 1 ), hb_parc( 2 ) );
+}
+
+HB_FUNC( SSH2_CHANNELREAD )
+{
+   HB_SSH2_SESSION *pSess = ( HB_SSH2_SESSION * ) hb_parptr( 1 );
+   int nBuffSize = 4000;
+   char buffer[nBuffSize], *pOut = NULL;
+   int iBytesRead = 0, iBytesReadAll = 0;
+   int iOutFirst = 1;
+   int rc;
+
+   for( ;; )
+   {
+      do
+      {
+         rc = libssh2_channel_read( pSess->channel, buffer+iBytesRead, nBuffSize-iBytesRead );
+
+         if( rc > 0 )
+         {
+            iBytesRead += rc;
+         }
+      }
+      while( rc > 0 && iBytesRead < nBuffSize );
+
+      if( iOutFirst )
+      {
+         pOut = (char*) hb_xgrab( iBytesRead + 1 );
+         memcpy( pOut, buffer, iBytesRead );
+         iOutFirst = 0;
+      }
+      else
+      {
+         pOut = ( char * ) hb_xrealloc( pOut, iBytesReadAll + iBytesRead + 1 );
+         memcpy( pOut+iBytesReadAll, buffer, iBytesRead );
+      }
+      iBytesReadAll += iBytesRead;
+      pOut[iBytesReadAll] = '\0';
+      iBytesRead = 0;
+
+      /* this is due to blocking that would occur otherwise so we loop on
+         this condition */
+      if( rc == LIBSSH2_ERROR_EAGAIN )
+      {
+         hb_ssh2_WaitSocket( pSess->sock, pSess->session );
+      }
+      else
+         break;
+   }
+
+   if( pOut )
+      hb_retclen_buffer( pOut, iBytesReadAll );
+   else
+      hb_ret();
+
 }
 
 #endif
