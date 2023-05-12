@@ -1,7 +1,7 @@
 FUNCTION Main( cAddr, cDir )
 
    LOCAL pSess, nPort, cLogin, cPass, nPos
-   LOCAL cName, nAttr, nSize, nDate
+   LOCAL cName, nAttr, nSize, dDate
 
    IF cAddr == Nil
       ACCEPT "Address:" TO cAddr
@@ -50,8 +50,8 @@ FUNCTION Main( cAddr, cDir )
       IF ssh2_LastErr( pSess ) == 0
          ? cDir + " opened"
          ? "-----"
-         DO WHILE !Empty( cName := ssh2_ftp_ReadDir( pSess, @nSize, @nDate, @nAttr ) )
-            ? nSize, nDate, nAttr, cName
+         DO WHILE !Empty( cName := ssh2_ftp_ReadDir( pSess, @nSize, @dDate, @nAttr ) )
+            ? nSize, hb_strShrink( hb_ttoc(dDate),4 ), nAttr, cName
          ENDDO
          ? "-----"
       ENDIF
