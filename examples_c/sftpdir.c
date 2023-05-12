@@ -19,7 +19,7 @@ int main( int argc, char *argv[] )
 
    if( argc > 1 )
    {
-      iLen = min( strlen( argv[1] ), 128 );
+      iLen = ( (iLen = strlen(argv[1]))>128 )? 128 : iLen;
       memcpy( hostname, argv[1], iLen );
    }
    else
@@ -34,7 +34,7 @@ int main( int argc, char *argv[] )
 
    if( argc > 2 )
    {
-      iLen = min( strlen( argv[2] ), 128 );
+      iLen = ( (iLen = strlen(argv[1]))>128 )? 128 : iLen;
       memcpy( hostname, argv[2], iLen );
    }
    else

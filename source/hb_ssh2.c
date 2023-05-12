@@ -1,16 +1,16 @@
 
 #include "hb_ssh2.h"
 
-static ULONG hb_ssh2_getAddr( const char *szName )
+static unsigned long hb_ssh2_getAddr( const char *szName )
 {
-   ULONG ulAddr = inet_addr( szName );
+   unsigned long ulAddr = inet_addr( szName );
 
    if( ulAddr == INADDR_NONE )
    {
       struct hostent *Host = gethostbyname( szName );
 
       if( Host )
-         return ( *( UINT * ) Host->h_addr_list[0] );
+         return ( *( unsigned int * ) Host->h_addr_list[0] );
       else
          return INADDR_NONE;
    }
@@ -108,8 +108,7 @@ HB_SSH2_SESSION *hb_ssh2_init( const char *hostname, int iPort, int iNonBlocking
    libssh2_session_set_blocking( pSess->session, !iNonBlocking );
    pSess->iNonBlocking = iNonBlocking;
 
-   while( ( rc =
-               libssh2_session_handshake( pSess->session,
+   while( ( rc = libssh2_session_handshake( pSess->session,
                      pSess->sock ) ) == LIBSSH2_ERROR_EAGAIN );
    if( rc )
    {

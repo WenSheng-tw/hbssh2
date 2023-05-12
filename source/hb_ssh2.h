@@ -6,6 +6,7 @@
 #else
 #include <libssh2.h>
 #include <libssh2_sftp.h>
+#include <netdb.h>
 #endif
 
 #ifdef HAVE_WINSOCK2_H
