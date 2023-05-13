@@ -25,7 +25,7 @@ FUNCTION Main( cAddr, cCmd )
       cAddr := Left( cAddr,nPos-1 )
    ENDIF
 
-   pSess := ssh2_Init( cAddr, nPort )
+   pSess := ssh2_Connect( cAddr, nPort )
 
    IF ssh2_LastErr( pSess ) != 0
       ? "Connection error"
@@ -58,5 +58,6 @@ FUNCTION Main( cAddr, cCmd )
    ENDIF
 
    ssh2_Close( pSess )
+   ssh2_Exit()
 
    RETURN Nil

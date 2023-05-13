@@ -57,11 +57,11 @@ int main( int argc, char *argv[] )
    fgets( password, 64, stdin );
    password[strlen( password ) - 1] = '\0';
 
-   pSess = hb_ssh2_init( hostname, iPort, 0 );
+   pSess = hb_ssh2_Connect( hostname, iPort, 0 );
    if( pSess->iRes != 0 )
    {
       fprintf( stderr, "Error: %d\n", pSess->iRes );
-      hb_ssh2_close( pSess );
+      hb_ssh2_Close( pSess );
       return -1;
    }
    else
@@ -70,7 +70,7 @@ int main( int argc, char *argv[] )
    if( hb_ssh2_LoginPass( pSess, username, password ) )
    {
       fprintf( stderr, "Authentication by password failed.\n" );
-      hb_ssh2_close( pSess );
+      hb_ssh2_Close( pSess );
       return -1;
    }
 
@@ -78,7 +78,7 @@ int main( int argc, char *argv[] )
    if( !pSess->sftp_session )
    {
       fprintf( stderr, "Unable to init SFTP session\n" );
-      hb_ssh2_close( pSess );
+      hb_ssh2_Close( pSess );
       return -1;
    }
 
@@ -86,7 +86,7 @@ int main( int argc, char *argv[] )
    if( !pSess->sftp_handle )
    {
       fprintf( stderr, "Unable to open dir with SFTP\n" );
-      hb_ssh2_close( pSess );
+      hb_ssh2_Close( pSess );
       return -1;
    }
    fprintf( stdout, "libssh2_sftp_opendir() is done, now receive listing!\n" );
@@ -110,7 +110,8 @@ int main( int argc, char *argv[] )
    while( 1 );
    fflush( stdout );
 
-   hb_ssh2_close( pSess );
+   hb_ssh2_Close( pSess );
+   hb_ssh2_Exit();
 
    return 0;
 }

@@ -1,11 +1,13 @@
 /*
- * Sample showing directory reading via SFTP
+ * Sample showing SFTP download
  */
 
-FUNCTION Main( cAddr, cDir )
+#include "fileio.ch"
+
+FUNCTION Main( cAddr, cFileName )
 
    LOCAL pSess, nPort, cLogin, cPass, nPos
-   LOCAL cName, nAttr, nSize, dDate
+   LOCAL handle, cBuff
 
    IF cAddr == Nil
       ACCEPT "Address:" TO cAddr
@@ -14,11 +16,11 @@ FUNCTION Main( cAddr, cDir )
       RETURN Nil
    ENDIF
 
-   IF cDir == Nil
-      ACCEPT "Directory (default: /home):" TO cDir
+   IF cFileName == Nil
+      ACCEPT "File to download:" TO cFileName
    ENDIF
-   IF Empty(cDir)
-      cDir := "/home"
+   IF Empty(cFileName)
+      RETURN Nil
    ENDIF
 
    ACCEPT "Login:" TO cLogin
@@ -47,14 +49,20 @@ FUNCTION Main( cAddr, cDir )
       RETURN Nil
    ENDIF
 
-   IF ssh2_Sftp_Init( pSess ) == 0 .AND. ;
-      ssh2_Sftp_OpenDir( pSess, cDir ) == 0
-      ? cDir + " opened"
-      ? "-----"
-      DO WHILE !Empty( cName := ssh2_Sftp_ReadDir( pSess, @nSize, @dDate, @nAttr ) )
-         ? nSize, hb_strShrink( hb_ttoc(dDate),4 ), nAttr, cName
-      ENDDO
-      ? "-----"
+   IF ssh2_Sftp_Init( pSess ) == 0
+      IF ssh2_Sftp_OpenFile( pSess, cFileName ) == 0
+         ? cFileName + " opened"
+         ?
+         handle := fOpen( hb_fnameNameExt(cFileName), FO_WRITE+FO_CREAT+FO_TRUNC )
+         DO WHILE !Empty( cBuff := ssh2_SftpRead( pSess ) )
+            fWrite( handle, cBuff )
+            ?? "."
+         ENDDO
+         fClose( handle )
+         ? "Done!"
+      ELSE
+         ? "Can't open " + cFileName
+      ENDIF
    ELSE
       ? "ftpInit failed"
    ENDIF

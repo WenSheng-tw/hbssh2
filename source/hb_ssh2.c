@@ -3,6 +3,8 @@
 
 #define  BUFFSIZE   8192
 
+static short int iSsh2Init = 0;
+
 static unsigned long hb_ssh2_getAddr( const char *szName )
 {
    unsigned long ulAddr = inet_addr( szName );
@@ -50,34 +52,34 @@ int hb_ssh2_WaitSocket( int socket_fd, LIBSSH2_SESSION * session )
    return rc;
 }
 
-HB_SSH2_SESSION *hb_ssh2_init( const char *hostname, int iPort, int iNonBlocking )
+HB_SSH2_SESSION *hb_ssh2_Connect( const char *hostname, int iPort, int iNonBlocking )
 {
 
    HB_SSH2_SESSION *pSess = ( HB_SSH2_SESSION * ) malloc( sizeof( HB_SSH2_SESSION ) );
    unsigned long hostaddr;
    struct sockaddr_in sin;
    int rc;
-#ifdef WIN32
-   WSADATA wsadata;
-#endif
 
    memset( pSess, 0, sizeof( HB_SSH2_SESSION ) );
 
+   if( !iSsh2Init )
+   {
 #ifdef WIN32
-   rc = WSAStartup( MAKEWORD( 2, 0 ), &wsadata );
-   if( rc != 0 )
-   {
-      pSess->iRes = -99;
-      return pSess;
-   }
+      WSADATA wsadata;
+      rc = WSAStartup( MAKEWORD( 2, 0 ), &wsadata );
+      if( rc != 0 )
+      {
+         pSess->iRes = -99;
+         return pSess;
+      }
 #endif
-
-   rc = libssh2_init( 0 );
-
-   if( rc != 0 )
-   {
-      pSess->iRes = -1;
-      return pSess;
+      rc = libssh2_init( 0 );
+      if( rc != 0 )
+      {
+         pSess->iRes = -1;
+         return pSess;
+      }
+      iSsh2Init = 1;
    }
 
    hostaddr = hb_ssh2_getAddr( hostname );
@@ -121,7 +123,7 @@ HB_SSH2_SESSION *hb_ssh2_init( const char *hostname, int iPort, int iNonBlocking
    return pSess;
 }
 
-void hb_ssh2_close( HB_SSH2_SESSION * pSess )
+void hb_ssh2_Close( HB_SSH2_SESSION * pSess )
 {
 
    hb_ssh2_SftpClose( pSess );
@@ -147,7 +149,13 @@ void hb_ssh2_close( HB_SSH2_SESSION * pSess )
 
    free( pSess );
 
-   libssh2_exit(  );
+}
+
+void hb_ssh2_Exit( void )
+{
+   if( iSsh2Init )
+      libssh2_exit();
+   iSsh2Init = 0;
 }
 
 int hb_ssh2_LoginPass( HB_SSH2_SESSION * pSess, const char *pLogin, const char *pPass )
@@ -345,13 +353,13 @@ int hb_ssh2_SftpRead( HB_SSH2_SESSION * pSess, char *buffer, int nBufferLen )
 #include "hbapiitm.h"
 #include "hbapicdp.h"
 
-HB_FUNC( SSH2_INIT )
+HB_FUNC( SSH2_CONNECT )
 {
    int iPort = ( hb_pcount(  ) > 1 && HB_ISNUM( 2 ) ) ? hb_parni( 2 ) : 22;
    int iNonBlocking = ( hb_pcount(  ) > 2 && HB_ISLOG( 3 ) ) ? hb_parl( 3 ) : 0;
 
    if( HB_ISCHAR( 1 ) )
-      hb_retptr( ( void * ) hb_ssh2_init( hb_parc( 1 ), iPort, iNonBlocking ) );
+      hb_retptr( ( void * ) hb_ssh2_Connect( hb_parc( 1 ), iPort, iNonBlocking ) );
 }
 
 HB_FUNC( SSH2_LASTERR )
@@ -361,7 +369,12 @@ HB_FUNC( SSH2_LASTERR )
 
 HB_FUNC( SSH2_CLOSE )
 {
-   hb_ssh2_close( ( HB_SSH2_SESSION * ) hb_parptr( 1 ) );
+   hb_ssh2_Close( ( HB_SSH2_SESSION * ) hb_parptr( 1 ) );
+}
+
+HB_FUNC( SSH2_EXIT )
+{
+   hb_ssh2_Exit();
 }
 
 HB_FUNC( SSH2_LOGIN )
@@ -489,6 +502,13 @@ HB_FUNC( SSH2_SFTPREAD )
 {
    HB_SSH2_SESSION *pSess = ( HB_SSH2_SESSION * ) hb_parptr( 1 );
    char buffer[BUFFSIZE];
+   int iBytesRead;
+
+   iBytesRead = hb_ssh2_SftpRead( pSess, buffer, BUFFSIZE );
+   if( iBytesRead >= 0 )
+      hb_retclen( buffer, iBytesRead );
+   else
+      hb_ret();
 }
 
 #endif

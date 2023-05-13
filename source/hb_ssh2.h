@@ -58,8 +58,9 @@ typedef struct {
 } HB_SSH2_SESSION;
 
 int hb_ssh2_WaitSocket( int, LIBSSH2_SESSION * );
-HB_SSH2_SESSION * hb_ssh2_init( const char *, int, int );
-void hb_ssh2_close( HB_SSH2_SESSION * );
+HB_SSH2_SESSION * hb_ssh2_Connect( const char *, int, int );
+void hb_ssh2_Close( HB_SSH2_SESSION * );
+void hb_ssh2_Exit( void );
 int hb_ssh2_LoginPass( HB_SSH2_SESSION *, const char *, const char * );
 int hb_ssh2_OpenChannel( HB_SSH2_SESSION * );
 void hb_ssh2_CloseChannel( HB_SSH2_SESSION * );
