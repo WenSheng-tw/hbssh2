@@ -53,7 +53,7 @@ typedef struct {
    LIBSSH2_SFTP *sftp_session;
    LIBSSH2_SFTP_HANDLE *sftp_handle;
    int iNonBlocking;
-   int iRes;
+   int iRes, iErr;
 
 } HB_SSH2_SESSION;
 

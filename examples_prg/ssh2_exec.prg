@@ -27,7 +27,7 @@ FUNCTION Main( cAddr, cCmd )
 
    pSess := ssh2_Connect( cAddr, nPort )
 
-   IF ssh2_LastErr( pSess ) != 0
+   IF ssh2_LastRes( pSess ) != 0
       ? "Connection error"
       ssh2_Close( pSess )
       RETURN Nil
@@ -45,10 +45,10 @@ FUNCTION Main( cAddr, cCmd )
 
    ssh2_OpenChannel( pSess )
 
-   IF ssh2_LastErr( pSess ) == 0
+   IF ssh2_LastRes( pSess ) == 0
       ? "> " + cCmd
       ssh2_Exec( pSess, cCmd )
-      IF ssh2_LastErr( pSess ) == 0
+      IF ssh2_LastRes( pSess ) == 0
          IF !Empty( cRes := ssh2_ChannelRead( pSess ) )
             ? cRes
          ENDIF

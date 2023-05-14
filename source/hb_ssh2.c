@@ -106,6 +106,7 @@ HB_SSH2_SESSION *hb_ssh2_Connect( const char *hostname, int iPort, int iNonBlock
    if( !pSess->session )
    {
       pSess->iRes = -4;
+      pSess->iErr = libssh2_session_last_errno( pSess->session );
       return pSess;
    }
 
@@ -117,6 +118,7 @@ HB_SSH2_SESSION *hb_ssh2_Connect( const char *hostname, int iPort, int iNonBlock
    if( rc )
    {
       pSess->iRes = -5;
+      pSess->iErr = libssh2_session_last_errno( pSess->session );
       return pSess;
    }
 
@@ -166,6 +168,7 @@ int hb_ssh2_LoginPass( HB_SSH2_SESSION * pSess, const char *pLogin, const char *
                libssh2_userauth_password( pSess->session, pLogin,
                      pPass ) ) == LIBSSH2_ERROR_EAGAIN );
    pSess->iRes = rc;
+   pSess->iErr = libssh2_session_last_errno( pSess->session );
    if( rc )
       return 1;
    return 0;
@@ -182,6 +185,7 @@ int hb_ssh2_OpenChannel( HB_SSH2_SESSION * pSess )
       hb_ssh2_WaitSocket( pSess->sock, pSess->session );
    }
    pSess->iRes = ( pSess->channel == NULL );
+   pSess->iErr = libssh2_session_last_errno( pSess->session );
    return pSess->iRes;
 }
 
@@ -224,7 +228,8 @@ int hb_ssh2_Exec( HB_SSH2_SESSION * pSess, const char *commandline )
                      commandline ) ) == LIBSSH2_ERROR_EAGAIN )
       hb_ssh2_WaitSocket( pSess->sock, pSess->session );
    if( rc != 0 )
-      pSess->iRes = -1;
+   pSess->iRes = ( rc != 0 )? -1 : 0;
+   pSess->iErr = libssh2_session_last_errno( pSess->session );
    return pSess->iRes;
 }
 
@@ -274,6 +279,8 @@ char * hb_ssh2_ChannelRead( HB_SSH2_SESSION * pSess )
          break;
    }
 
+   pSess->iRes = ( rc != 0 )? -1 : 0;
+   pSess->iErr = libssh2_session_last_errno( pSess->session );
    return pOut;
 }
 
@@ -288,6 +295,7 @@ int hb_ssh2_SftpInit( HB_SSH2_SESSION * pSess )
       hb_ssh2_WaitSocket( pSess->sock, pSess->session );
    }
    pSess->iRes = ( pSess->sftp_session == NULL );
+   pSess->iErr = libssh2_sftp_last_error( pSess->sftp_session );
    return pSess->iRes;
 }
 
@@ -295,6 +303,7 @@ int hb_ssh2_SftpOpenDir( HB_SSH2_SESSION * pSess, const char *sftppath )
 {
    pSess->sftp_handle = libssh2_sftp_opendir( pSess->sftp_session, sftppath );
    pSess->iRes = ( pSess->sftp_handle == NULL );
+   pSess->iErr = libssh2_sftp_last_error( pSess->sftp_session );
    return pSess->iRes;
 }
 
@@ -311,6 +320,7 @@ int hb_ssh2_SftpOpenFile( HB_SSH2_SESSION * pSess, const char *sftppath,
    pSess->sftp_handle =
          libssh2_sftp_open( pSess->sftp_session, sftppath, ulFlags, lMode );
    pSess->iRes = ( pSess->sftp_handle == NULL );
+   pSess->iErr = libssh2_sftp_last_error( pSess->sftp_session );
    return pSess->iRes;
 }
 
@@ -325,6 +335,8 @@ int hb_ssh2_SftpReadDir( HB_SSH2_SESSION * pSess, char *cName, int iLen,
       *pTime = ( attrs.flags & LIBSSH2_SFTP_ATTR_ACMODTIME ) ? attrs.mtime : 0;
       *pAttrs = ( attrs.flags & LIBSSH2_SFTP_ATTR_PERMISSIONS ) ? attrs.permissions : 0;
    }
+   pSess->iRes = ( rc != 0 )? -1 : 0;
+   pSess->iErr = libssh2_sftp_last_error( pSess->sftp_session );
    return rc;
 }
 
@@ -342,8 +354,10 @@ int hb_ssh2_SftpRead( HB_SSH2_SESSION * pSess, char *buffer, int nBufferLen )
          iBytesRead += rc;
    }
    while( rc > 0 && iBytesRead < BUFFSIZE );
-   if( rc < 0 )
-      pSess->iRes = rc;
+
+   pSess->iRes = ( rc < 0 )? -1 : 0;
+   pSess->iErr = libssh2_sftp_last_error( pSess->sftp_session );
+
    return iBytesRead;
 }
 
@@ -362,9 +376,14 @@ HB_FUNC( SSH2_CONNECT )
       hb_retptr( ( void * ) hb_ssh2_Connect( hb_parc( 1 ), iPort, iNonBlocking ) );
 }
 
-HB_FUNC( SSH2_LASTERR )
+HB_FUNC( SSH2_LASTRES )
 {
    hb_retni( ( ( HB_SSH2_SESSION * ) hb_parptr( 1 ) )->iRes );
+}
+
+HB_FUNC( SSH2_LASTERR )
+{
+   hb_retni( ( ( HB_SSH2_SESSION * ) hb_parptr( 1 ) )->iErr );
 }
 
 HB_FUNC( SSH2_CLOSE )
