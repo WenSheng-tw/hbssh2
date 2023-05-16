@@ -67,7 +67,7 @@ FUNCTION Main( cAddr, cFileName )
                LIBSSH2_SFTP_S_IRGRP + LIBSSH2_SFTP_S_IROTH ) == 0
          ? cFileName + " created"
          cBuff := Memoread( cFileName )
-         ssh2_SFtpWrite( pSess, cBuff )
+         ssh2_SFtp_Write( pSess, cBuff )
          ? "Done!"
          ssh2_Sftp_Close( pSess )
       ELSE

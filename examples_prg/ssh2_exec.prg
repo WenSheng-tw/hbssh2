@@ -43,13 +43,13 @@ FUNCTION Main( cAddr, cCmd )
       RETURN Nil
    ENDIF
 
-   ssh2_OpenChannel( pSess )
+   ssh2_Channel_Open( pSess )
 
    IF ssh2_LastRes( pSess ) == 0
       ? "> " + cCmd
       ssh2_Exec( pSess, cCmd )
       IF ssh2_LastRes( pSess ) == 0
-         IF !Empty( cRes := ssh2_ChannelRead( pSess ) )
+         IF !Empty( cRes := ssh2_Channel_Read( pSess ) )
             ? cRes
          ENDIF
       ENDIF

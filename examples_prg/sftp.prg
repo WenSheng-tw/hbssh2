@@ -54,7 +54,7 @@ FUNCTION Main( cAddr, cFileName )
          ? cFileName + " opened"
          ?
          handle := fOpen( hb_fnameNameExt(cFileName), FO_WRITE+FO_CREAT+FO_TRUNC )
-         DO WHILE !Empty( cBuff := ssh2_SftpRead( pSess ) )
+         DO WHILE !Empty( cBuff := ssh2_Sftp_Read( pSess ) )
             fWrite( handle, cBuff )
             ?? "."
          ENDDO
