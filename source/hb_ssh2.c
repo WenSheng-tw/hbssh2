@@ -1,3 +1,9 @@
+/*
+ * Harbour wrappers for libssh2
+ *
+ * Copyright 2023 Alexander S.Kresin <alex@kresin.ru>
+ * www - http://www.kresin.ru
+ */
 
 #include "hb_ssh2.h"
 
@@ -485,7 +491,7 @@ HB_FUNC( SSH2_SFTP_CLOSE )
 
 HB_FUNC( SSH2_SFTP_MKDIR )
 {
-   long lMode = (hb_pcount()>2 && ISNUM(3))? hb_parnl(3) :
+   long lMode = (hb_pcount()>2 && HB_ISNUM(3))? hb_parnl(3) :
       LIBSSH2_SFTP_S_IRUSR | LIBSSH2_SFTP_S_IWUSR | LIBSSH2_SFTP_S_IXUSR | LIBSSH2_SFTP_S_IRGRP | LIBSSH2_SFTP_S_IROTH;
    hb_retni( hb_ssh2_SftpMkDir( ( HB_SSH2_SESSION * ) hb_parptr( 1 ), hb_parc( 2 ), lMode ) );
 }
