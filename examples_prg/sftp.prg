@@ -6,7 +6,7 @@
 
 FUNCTION Main( cAddr, cFileName )
 
-   LOCAL pSess, nPort, cLogin, cPass, nPos
+   LOCAL pSess, pHandle, nPort, cLogin, cPass, nPos
    LOCAL handle, cBuff
 
    IF cAddr == Nil
@@ -50,17 +50,17 @@ FUNCTION Main( cAddr, cFileName )
    ENDIF
 
    IF ssh2_Sftp_Init( pSess ) == 0
-      IF ssh2_Sftp_OpenFile( pSess, cFileName ) == 0
+      IF !Empty( pHandle := ssh2_Sftp_OpenFile( pSess, cFileName ) )
          ? cFileName + " opened"
          ?
          handle := fOpen( hb_fnameNameExt(cFileName), FO_WRITE+FO_CREAT+FO_TRUNC )
-         DO WHILE !Empty( cBuff := ssh2_Sftp_Read( pSess ) )
+         DO WHILE !Empty( cBuff := ssh2_Sftp_Read( pHandle ) )
             fWrite( handle, cBuff )
             ?? "."
          ENDDO
          fClose( handle )
          ? "Done!"
-         ssh2_Sftp_Close( pSess )
+         ssh2_Sftp_Close( pHandle )
       ELSE
          ? "Can't open " + cFileName
       ENDIF

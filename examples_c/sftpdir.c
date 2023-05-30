@@ -9,6 +9,7 @@
 int main( int argc, char *argv[] )
 {
    HB_SSH2_SESSION *pSess;
+   HB_SSH2_SFTP_HANDLE * pHandle;
    char username[64];
    char password[64];
    char sftppath[128];
@@ -82,8 +83,8 @@ int main( int argc, char *argv[] )
       return -1;
    }
 
-   hb_ssh2_SftpOpenDir( pSess, sftppath );
-   if( !pSess->sftp_handle )
+   pHandle = hb_ssh2_SftpOpenDir( pSess, sftppath );
+   if( !pHandle )
    {
       fprintf( stderr, "Unable to open dir with SFTP\n" );
       hb_ssh2_Close( pSess );
@@ -97,7 +98,7 @@ int main( int argc, char *argv[] )
       unsigned long ulTime;
       unsigned long ulAttrs;
 
-      rc = hb_ssh2_SftpReadDir( pSess, mem, sizeof( mem ), &ulSize, &ulTime, &ulAttrs );
+      rc = hb_ssh2_SftpReadDir( pHandle, mem, sizeof( mem ), &ulSize, &ulTime, &ulAttrs );
       if( rc > 0 )
       {
          printf( " %8ld %8ld %8ld ", ulSize, ulTime, ulAttrs );
@@ -110,6 +111,7 @@ int main( int argc, char *argv[] )
    while( 1 );
    fflush( stdout );
 
+   hb_ssh2_SftpClose( pHandle );
    hb_ssh2_Close( pSess );
    hb_ssh2_Exit();
 

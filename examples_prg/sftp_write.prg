@@ -7,7 +7,7 @@
 
 FUNCTION Main( cAddr, cFileName )
 
-   LOCAL pSess, nPort, cLogin, cPass, nPos, cPath
+   LOCAL pSess, pHandle, nPort, cLogin, cPass, nPos, cPath
    LOCAL cBuff
 
    IF cAddr == Nil
@@ -18,7 +18,7 @@ FUNCTION Main( cAddr, cFileName )
    ENDIF
 
    IF cFileName == Nil
-      ACCEPT "File to download:" TO cFileName
+      ACCEPT "File to upload:" TO cFileName
    ENDIF
    IF Empty(cFileName)
       RETURN Nil
@@ -62,14 +62,14 @@ FUNCTION Main( cAddr, cFileName )
    ENDIF
 
    IF ssh2_Sftp_Init( pSess ) == 0
-      IF ssh2_Sftp_OpenFile( pSess, cPath, LIBSSH2_FXF_WRITE + LIBSSH2_FXF_CREAT, ;
+      IF !Empty( pHandle := ssh2_Sftp_OpenFile( pSess, cPath, LIBSSH2_FXF_WRITE + LIBSSH2_FXF_CREAT, ;
                LIBSSH2_SFTP_S_IRUSR + LIBSSH2_SFTP_S_IWUSR + ;
-               LIBSSH2_SFTP_S_IRGRP + LIBSSH2_SFTP_S_IROTH ) == 0
+               LIBSSH2_SFTP_S_IRGRP + LIBSSH2_SFTP_S_IROTH ) )
          ? cFileName + " created"
          cBuff := Memoread( cFileName )
-         ssh2_SFtp_Write( pSess, cBuff )
+         ssh2_SFtp_Write( pHandle, cBuff )
          ? "Done!"
-         ssh2_Sftp_Close( pSess )
+         ssh2_Sftp_Close( pHandle )
       ELSE
          ? "Can't open " + cFileName
       ENDIF

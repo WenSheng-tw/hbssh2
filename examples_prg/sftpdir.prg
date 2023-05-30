@@ -4,7 +4,7 @@
 
 FUNCTION Main( cAddr, cDir )
 
-   LOCAL pSess, nPort, cLogin, cPass, nPos
+   LOCAL pSess, pHandle, nPort, cLogin, cPass, nPos
    LOCAL cName, nAttr, nSize, dDate
 
    IF cAddr == Nil
@@ -48,13 +48,14 @@ FUNCTION Main( cAddr, cDir )
    ENDIF
 
    IF ssh2_Sftp_Init( pSess ) == 0 .AND. ;
-      ssh2_Sftp_OpenDir( pSess, cDir ) == 0
+      !Empty( pHandle := ssh2_Sftp_OpenDir( pSess, cDir ) )
       ? cDir + " opened"
       ? "-----"
-      DO WHILE !Empty( cName := ssh2_Sftp_ReadDir( pSess, @nSize, @dDate, @nAttr ) )
+      DO WHILE !Empty( cName := ssh2_Sftp_ReadDir( pHandle, @nSize, @dDate, @nAttr ) )
          ? nSize, hb_strShrink( hb_ttoc(dDate),4 ), nAttr, cName
       ENDDO
       ? "-----"
+      ssh2_Sftp_Close( pHandle )
    ELSE
       ? "ftpInit failed"
    ENDIF

@@ -9,6 +9,7 @@
 int main( int argc, char *argv[] )
 {
    HB_SSH2_SESSION *pSess;
+   HB_SSH2_SFTP_HANDLE * pHandle;
    char username[64];
    char password[64];
    char sftppath[128];
@@ -98,10 +99,11 @@ int main( int argc, char *argv[] )
 
    fprintf( stderr, "libssh2_sftp_open()!\n" );
    /* Request a file via SFTP */
-   if( hb_ssh2_SftpOpenFile( pSess, sftppath,
+   pHandle = hb_ssh2_SftpOpenFile( pSess, sftppath,
                LIBSSH2_FXF_WRITE | LIBSSH2_FXF_CREAT | LIBSSH2_FXF_TRUNC,
                LIBSSH2_SFTP_S_IRUSR | LIBSSH2_SFTP_S_IWUSR |
-               LIBSSH2_SFTP_S_IRGRP | LIBSSH2_SFTP_S_IROTH ) )
+               LIBSSH2_SFTP_S_IRGRP | LIBSSH2_SFTP_S_IROTH );
+   if( !pHandle )
    {
       fprintf( stderr, "Unable to open file with SFTP\n" );
       hb_ssh2_Close( pSess );
@@ -116,10 +118,11 @@ int main( int argc, char *argv[] )
          /* end of file */
          break;
       }
-      rc = hb_ssh2_SftpWrite( pSess, mem, nread );
+      rc = hb_ssh2_SftpWrite( pHandle, mem, nread );
    }
    while( rc > 0 );
 
+   hb_ssh2_SftpClose( pHandle );
    hb_ssh2_Close( pSess );
    hb_ssh2_Exit(  );
 
