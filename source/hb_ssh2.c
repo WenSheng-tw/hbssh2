@@ -631,6 +631,18 @@ HB_FUNC( SSH2_SFTP_READ )
       hb_ret();
 }
 
+HB_FUNC( SSH2_SFTP_READLEN )
+{
+   int iBytesRead, nToRead = hb_parni( 2 );
+   char * buffer = ( char * ) hb_xgrab( nToRead + 1 );
+
+   iBytesRead = hb_ssh2_SftpRead( ( HB_SSH2_SFTP_HANDLE * ) hb_parptr( 1 ), buffer, nToRead );
+   if( iBytesRead >= 0 )
+      hb_retclen_buffer( buffer, iBytesRead );
+   else
+      hb_retc_null();
+}
+
 HB_FUNC( SSH2_SFTP_WRITE )
 {
    int iWrite = ( hb_pcount() > 2 && HB_ISNUM(3) )? hb_parni( 3 ) : hb_parclen(2);
@@ -638,6 +650,12 @@ HB_FUNC( SSH2_SFTP_WRITE )
 
    iBytesWritten = hb_ssh2_SftpWrite( ( HB_SSH2_SFTP_HANDLE * ) hb_parptr( 1 ), (char*) hb_parc(2), iWrite );
    hb_retni( iBytesWritten );
+}
+
+HB_FUNC( SSH2_SFTP_SEEK )
+{
+
+   libssh2_sftp_seek( ( ( HB_SSH2_SFTP_HANDLE * ) hb_parptr( 1 ) )->sftp_handle, hb_parni( 2 ) );
 }
 
 HB_FUNC( SSH2_SFTP_STAT )
