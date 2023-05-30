@@ -612,7 +612,7 @@ HB_FUNC( SSH2_SFTP_READ )
 
 HB_FUNC( SSH2_SFTP_WRITE )
 {
-   int iWrite = ( hb_pcount() > 2 && HB_ISNUM(2) )? hb_parni( 3 ) : hb_parclen(2);
+   int iWrite = ( hb_pcount() > 2 && HB_ISNUM(3) )? hb_parni( 3 ) : hb_parclen(2);
    int iBytesWritten;
 
    iBytesWritten = hb_ssh2_SftpWrite( ( HB_SSH2_SFTP_HANDLE * ) hb_parptr( 1 ), (char*) hb_parc(2), iWrite );
@@ -627,12 +627,13 @@ HB_FUNC( SSH2_SFTP_STAT )
 
    rc = hb_ssh2_SftpStat( pSess, (char *) hb_parc(2), LIBSSH2_SFTP_STAT, &attrs );
 
-   if( rc > 0 )
+   if( rc == 0 )
    {
       if( hb_pcount() > 2 )
          hb_stornl( attrs.filesize, 3 );
       if( hb_pcount() > 3 )
-         hb_stornl( attrs.mtime, 4 );
+         //hb_stornl( attrs.mtime, 4 );
+         hb_stortdt( attrs.mtime / 86400 + 2440588, ( attrs.mtime % 86400 ) * 1000, 4 );
       if( hb_pcount() > 4 )
          hb_stornl( attrs.permissions, 5 );
    }
