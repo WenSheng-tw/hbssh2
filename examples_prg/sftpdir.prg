@@ -1,6 +1,9 @@
 /*
  * Sample showing directory reading via SFTP
+ *  using non-blocking io
  */
+
+STATIC nOut := 0
 
 FUNCTION Main( cAddr, cDir )
 
@@ -29,7 +32,8 @@ FUNCTION Main( cAddr, cDir )
       cAddr := Left( cAddr,nPos-1 )
    ENDIF
 
-   pSess := ssh2_Connect( cAddr, nPort )
+   ssh2_SetCallback( "TEST_CLB" )
+   pSess := ssh2_Connect( cAddr, nPort, .T. )
 
    IF ssh2_LastRes( pSess ) != 0
       ? "Connection error"
@@ -63,4 +67,12 @@ FUNCTION Main( cAddr, cDir )
    ssh2_Close( pSess )
    ssh2_Exit()
 
+   ? nOut
+
    RETURN Nil
+
+FUNCTION Test_CLB
+   
+   nOut ++
+
+   RETURN 1
