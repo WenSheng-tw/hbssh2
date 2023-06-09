@@ -10,6 +10,13 @@
 #define  BUFFSIZE   8192
 
 static short int iSsh2Init = 0;
+static int( *pCallback )( HB_SSH2_SESSION * ) = NULL;
+
+
+void hb_ssh2_setCallback( int( *fn )( HB_SSH2_SESSION * ) )
+{
+   pCallback = fn;
+}
 
 static unsigned long hb_ssh2_getAddr( const char *szName )
 {
@@ -188,6 +195,8 @@ int hb_ssh2_ChannelOpen( HB_SSH2_SESSION * pSess )
          libssh2_session_last_error( pSess->session, NULL, NULL,
                0 ) == LIBSSH2_ERROR_EAGAIN )
    {
+      if( pCallback && !pCallback( pSess ) )
+         break;
       hb_ssh2_WaitSocket( pSess->sock, pSess->session );
    }
    pSess->iRes = ( pSess->channel == NULL );
@@ -202,7 +211,6 @@ void hb_ssh2_ChannelClose( HB_SSH2_SESSION * pSess )
       return;
    while( libssh2_channel_close( pSess->channel ) == LIBSSH2_ERROR_EAGAIN )
       hb_ssh2_WaitSocket( pSess->sock, pSess->session );
-
 #if 0
    {
       int exitcode = 127;
@@ -232,7 +240,11 @@ int hb_ssh2_Exec( HB_SSH2_SESSION * pSess, const char *commandline )
 
    while( ( rc = libssh2_channel_exec( pSess->channel,
                      commandline ) ) == LIBSSH2_ERROR_EAGAIN )
+   {
+      if( pCallback && !pCallback( pSess ) )
+         break;
       hb_ssh2_WaitSocket( pSess->sock, pSess->session );
+   }
    if( rc != 0 )
    pSess->iRes = ( rc != 0 )? -1 : 0;
    pSess->iErr = libssh2_session_last_errno( pSess->session );
@@ -279,6 +291,8 @@ char * hb_ssh2_ChannelRead( HB_SSH2_SESSION * pSess )
          this condition */
       if( rc == LIBSSH2_ERROR_EAGAIN )
       {
+         if( pCallback && !pCallback( pSess ) )
+            break;
          hb_ssh2_WaitSocket( pSess->sock, pSess->session );
       }
       else
@@ -293,11 +307,11 @@ char * hb_ssh2_ChannelRead( HB_SSH2_SESSION * pSess )
 int hb_ssh2_SftpInit( HB_SSH2_SESSION * pSess )
 {
 
-   while( ( pSess->sftp_session =
-               libssh2_sftp_init( pSess->session ) ) == NULL &&
-         libssh2_session_last_error( pSess->session, NULL, NULL,
-               0 ) == LIBSSH2_ERROR_EAGAIN )
+   while( ( pSess->sftp_session = libssh2_sftp_init( pSess->session ) ) == NULL &&
+      libssh2_session_last_error( pSess->session, NULL, NULL, 0 ) == LIBSSH2_ERROR_EAGAIN )
    {
+      if( pCallback && !pCallback( pSess ) )
+         break;
       hb_ssh2_WaitSocket( pSess->sock, pSess->session );
    }
    pSess->iRes = ( pSess->sftp_session == NULL );
@@ -316,7 +330,15 @@ HB_SSH2_SFTP_HANDLE * hb_ssh2_SftpOpenDir( HB_SSH2_SESSION * pSess, const char *
 {
 
    HB_SSH2_SFTP_HANDLE * pHandle = NULL;
-   LIBSSH2_SFTP_HANDLE *sftp_handle = libssh2_sftp_opendir( pSess->sftp_session, sftppath );
+   LIBSSH2_SFTP_HANDLE *sftp_handle;
+
+   while( ( sftp_handle = libssh2_sftp_opendir( pSess->sftp_session, sftppath ) ) == NULL &&
+         libssh2_session_last_error( pSess->session, NULL, NULL, 0 ) == LIBSSH2_ERROR_EAGAIN )
+   {
+      if( pCallback && !pCallback( pSess ) )
+         break;
+      hb_ssh2_WaitSocket( pSess->sock, pSess->session );
+   }
 
    if( sftp_handle ) {
       pHandle = ( HB_SSH2_SFTP_HANDLE * ) malloc( sizeof( HB_SSH2_SFTP_HANDLE ) );
@@ -332,8 +354,15 @@ HB_SSH2_SFTP_HANDLE * hb_ssh2_SftpOpenFile( HB_SSH2_SESSION * pSess, const char 
       unsigned long ulFlags, long lMode )
 {
    HB_SSH2_SFTP_HANDLE * pHandle = NULL;
-   LIBSSH2_SFTP_HANDLE * sftp_handle =
-         libssh2_sftp_open( pSess->sftp_session, sftppath, ulFlags, lMode );
+   LIBSSH2_SFTP_HANDLE * sftp_handle;
+
+   while( ( sftp_handle = libssh2_sftp_open( pSess->sftp_session, sftppath, ulFlags, lMode ) ) == NULL &&
+         libssh2_session_last_error( pSess->session, NULL, NULL, 0 ) == LIBSSH2_ERROR_EAGAIN )
+   {
+      if( pCallback && !pCallback( pSess ) )
+         break;
+      hb_ssh2_WaitSocket( pSess->sock, pSess->session );
+   }
 
    if( sftp_handle ) {
       pHandle = ( HB_SSH2_SFTP_HANDLE * ) malloc( sizeof( HB_SSH2_SFTP_HANDLE ) );
@@ -357,14 +386,31 @@ void hb_ssh2_SftpClose( HB_SSH2_SFTP_HANDLE * pHandle )
 
 int hb_ssh2_SftpMkDir( HB_SSH2_SESSION * pSess, const char *sftppath, long lMode )
 {
-   return libssh2_sftp_mkdir( pSess->sftp_session, sftppath, lMode );
+   int rc;
+
+   while( ( rc = libssh2_sftp_mkdir( pSess->sftp_session, sftppath, lMode ) ) == LIBSSH2_ERROR_EAGAIN )
+   {
+      if( pCallback && !pCallback( pSess ) )
+         break;
+      hb_ssh2_WaitSocket( pSess->sock, pSess->session );
+   }
+
+   return rc;
 }
 
 int hb_ssh2_SftpReadDir( HB_SSH2_SFTP_HANDLE * pHandle, char *cName, int iLen,
       unsigned long *pSize, unsigned long *pTime, unsigned long *pAttrs )
 {
    LIBSSH2_SFTP_ATTRIBUTES attrs;
-   int rc = libssh2_sftp_readdir( pHandle->sftp_handle, cName, iLen, &attrs );
+   int rc;
+
+   while( ( rc = libssh2_sftp_readdir( pHandle->sftp_handle, cName, iLen, &attrs ) ) == LIBSSH2_ERROR_EAGAIN )
+   {
+      if( pCallback && !pCallback( pHandle->pSess ) )
+         break;
+      hb_ssh2_WaitSocket( pHandle->pSess->sock, pHandle->pSess->session );
+   }
+
    if( rc )
    {
       *pSize = ( attrs.flags & LIBSSH2_SFTP_ATTR_SIZE ) ? attrs.filesize : 0;
@@ -436,6 +482,9 @@ int hb_ssh2_SftpStat( HB_SSH2_SESSION * pSess, char *cPath, int iStat_type, LIBS
 #include "hbapiitm.h"
 #include "hbapicdp.h"
 #include "hbapifs.h"
+#include "hbvm.h"
+
+static PHB_DYNS s_pSymTest = NULL;
 
 HB_FUNC( SSH2_CONNECT )
 {
@@ -602,10 +651,10 @@ HB_FUNC( SSH2_CHANNEL_READ )
       pOut[iBytesReadAll] = '\0';
       iBytesRead = 0;
 
-      /* this is due to blocking that would occur otherwise so we loop on
-         this condition */
       if( rc == LIBSSH2_ERROR_EAGAIN )
       {
+         if( pCallback && !pCallback( pSess ) )
+            break;
          hb_ssh2_WaitSocket( pSess->sock, pSess->session );
       }
       else
@@ -729,4 +778,34 @@ HB_FUNC( SSH2_VERSION )
 {
    hb_retc( libssh2_version( LIBSSH2_VERSION_NUM ) );
 }
+
+static int s_cbProc( HB_SSH2_SESSION * pSess )
+{
+
+   if( s_pSymTest && hb_dynsymIsFunction( s_pSymTest ) )
+   {
+      hb_vmPushDynSym( s_pSymTest );
+      hb_vmPushNil();   /* places NIL at self */
+      hb_vmPushPointer( ( void * )pSess );
+      hb_vmDo( 1 );     /* where iArgCount is the number of pushed parameters */
+      return hb_parni( -1 );
+   }
+   else
+      return 1;
+}
+
+HB_FUNC( SSH2_SETCALLBACK )
+{
+   if( hb_pcount() > 0 && HB_ISCHAR(1) )
+   {
+      s_pSymTest = hb_dynsymGetCase( hb_parc(1) );
+      hb_ssh2_setCallback( s_cbProc );
+   }
+   else
+   {
+      s_pSymTest = NULL;
+      hb_ssh2_setCallback( NULL );
+   }
+}
+
 #endif
