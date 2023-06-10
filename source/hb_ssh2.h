@@ -58,6 +58,8 @@ typedef struct {
    LIBSSH2_CHANNEL *channel;
    LIBSSH2_SFTP *sftp_session;
    int iNonBlocking;
+   int iInfo;
+   long int lInfo;
    int iRes, iErr;
 
 } HB_SSH2_SESSION;
