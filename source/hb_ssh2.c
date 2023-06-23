@@ -411,7 +411,7 @@ int hb_ssh2_SftpReadDir( HB_SSH2_SFTP_HANDLE * pHandle, char *cName, int iLen,
    LIBSSH2_SFTP_ATTRIBUTES attrs;
    int rc;
 
-   pSess->iInfo = 55;
+   pHandle->pSess->iInfo = 55;
    while( ( rc = libssh2_sftp_readdir( pHandle->sftp_handle, cName, iLen, &attrs ) ) == LIBSSH2_ERROR_EAGAIN )
    {
       if( pCallback && !pCallback( pHandle->pSess ) )
@@ -436,14 +436,23 @@ int hb_ssh2_SftpRead( HB_SSH2_SFTP_HANDLE * pHandle, char *buffer, int nBufferLe
    int iBytesRead = 0;
    int rc;
 
+   pHandle->pSess->iInfo = 56;
    do
    {
       rc = libssh2_sftp_read( pHandle->sftp_handle, buffer+iBytesRead, BUFFSIZE-iBytesRead );
 
       if( rc > 0 )
          iBytesRead += rc;
+      if( pHandle->pSess->iNonBlocking )
+         if( rc == LIBSSH2_ERROR_EAGAIN )
+         {
+            if( pCallback && !pCallback( pHandle->pSess ) )
+               break;
+            hb_ssh2_WaitSocket( pHandle->pSess->sock, pHandle->pSess->session );
+         }
    }
-   while( rc > 0 && iBytesRead < BUFFSIZE );
+   while( ( pHandle->pSess->iNonBlocking && rc == LIBSSH2_ERROR_EAGAIN ) ||
+      ( rc > 0 && iBytesRead < BUFFSIZE ) );
 
    pHandle->pSess->iRes = ( rc < 0 )? -1 : 0;
    pHandle->pSess->iErr = libssh2_sftp_last_error( pHandle->pSess->sftp_session );
@@ -696,7 +705,25 @@ HB_FUNC( SSH2_SFTP_READLEN )
 
    iBytesRead = hb_ssh2_SftpRead( ( HB_SSH2_SFTP_HANDLE * ) hb_parptr( 1 ), buffer, nToRead );
    if( iBytesRead >= 0 )
-      hb_retclen_buffer( buffer, iBytesRead );
+      hb_retclen( buffer, iBytesRead );
+   else
+      hb_retc_null();
+   hb_xfree( buffer );
+}
+
+HB_FUNC( SSH2_SFTP_READRAW )
+{
+   HB_SSH2_SFTP_HANDLE * pHandle = ( HB_SSH2_SFTP_HANDLE * ) hb_parptr( 1 );
+   char buffer[BUFFSIZE];
+   int rc;
+
+   rc = libssh2_sftp_read( pHandle->sftp_handle,
+      buffer, BUFFSIZE );
+   if( rc == LIBSSH2_ERROR_EAGAIN )
+      hb_ssh2_WaitSocket( pHandle->pSess->sock, pHandle->pSess->session );
+   hb_storni( rc, 2 );
+   if( rc > 0 )
+      hb_retclen( buffer, rc );
    else
       hb_retc_null();
 }

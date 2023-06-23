@@ -28,3 +28,5 @@
 #define LIBSSH2_SFTP_S_IXOTH        0x00001     /* X for other */
 
 #define LIBSSH2_SFTP_S_IFDIR        0x04000     /* directory */
+
+#define LIBSSH2_ERROR_EAGAIN        -37
