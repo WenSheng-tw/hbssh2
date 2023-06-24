@@ -4,6 +4,8 @@
 
 #include "fileio.ch"
 
+STATIC nOut := 0
+
 FUNCTION Main( cAddr, cFileName )
 
    LOCAL pSess, pHandle, nPort, cLogin, cPass, nPos, cPath
@@ -42,7 +44,9 @@ FUNCTION Main( cAddr, cFileName )
       cAddr := Left( cAddr,nPos-1 )
    ENDIF
 
-   pSess := ssh2_Connect( cAddr, nPort )
+   // Testing non blocking mode
+   ssh2_SetCallback( "TEST_CLB" )
+   pSess := ssh2_Connect( cAddr, nPort, .T. )
 
    IF ssh2_LastRes( pSess ) != 0
       ? "Connection error"
@@ -78,4 +82,12 @@ FUNCTION Main( cAddr, cFileName )
    ssh2_Close( pSess )
    ssh2_Exit()
 
+   ? nOut
+
    RETURN Nil
+
+FUNCTION Test_CLB
+
+   nOut ++
+
+   RETURN 1

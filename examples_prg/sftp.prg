@@ -33,6 +33,7 @@ FUNCTION Main( cAddr, cFileName )
       cAddr := Left( cAddr,nPos-1 )
    ENDIF
 
+   // Testing non blocking mode
    ssh2_SetCallback( "TEST_CLB" )
    pSess := ssh2_Connect( cAddr, nPort, .T. )
 

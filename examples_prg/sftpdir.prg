@@ -32,6 +32,7 @@ FUNCTION Main( cAddr, cDir )
       cAddr := Left( cAddr,nPos-1 )
    ENDIF
 
+   // Testing non blocking mode
    ssh2_SetCallback( "TEST_CLB" )
    pSess := ssh2_Connect( cAddr, nPort, .T. )
 
@@ -72,7 +73,7 @@ FUNCTION Main( cAddr, cDir )
    RETURN Nil
 
 FUNCTION Test_CLB
-   
+
    nOut ++
 
    RETURN 1

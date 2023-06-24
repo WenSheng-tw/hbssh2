@@ -466,15 +466,25 @@ int hb_ssh2_SftpWrite( HB_SSH2_SFTP_HANDLE * pHandle, char *buffer, int nBufferL
    char * ptr = buffer;
    int rc, iWritten = 0;
 
+   pHandle->pSess->iInfo = 57;
    do
    {
       /* write data in a loop until we block */
       rc = libssh2_sftp_write( pHandle->sftp_handle, ptr, nBufferLen );
-      if( rc < 0 )
+      if( pHandle->pSess->iNonBlocking && rc == LIBSSH2_ERROR_EAGAIN )
+      {
+         if( pCallback && !pCallback( pHandle->pSess ) )
+            break;
+         hb_ssh2_WaitSocket( pHandle->pSess->sock, pHandle->pSess->session );
+      }
+      else if( rc < 0 )
          break;
-      ptr += rc;
-      nBufferLen -= rc;
-      iWritten += rc;
+      else if( rc > 0 )
+      {
+         ptr += rc;
+         nBufferLen -= rc;
+         iWritten += rc;
+      }
    }
    while( nBufferLen );
 
@@ -486,8 +496,14 @@ int hb_ssh2_SftpStat( HB_SSH2_SESSION * pSess, char *cPath, int iStat_type, LIBS
 {
    int rc;
 
-   rc = libssh2_sftp_stat_ex( pSess->sftp_session, cPath, strlen( cPath ),
-      iStat_type, attrs );
+   pSess->iInfo = 58;
+   while( ( rc = libssh2_sftp_stat_ex( pSess->sftp_session, cPath, strlen( cPath ),
+      iStat_type, attrs ) ) == LIBSSH2_ERROR_EAGAIN )
+   {
+      if( pCallback && !pCallback( pSess ) )
+         break;
+      hb_ssh2_WaitSocket( pSess->sock, pSess->session );
+   }
    pSess->iRes = ( rc < 0 )? -1 : 0;
    return rc;
 
