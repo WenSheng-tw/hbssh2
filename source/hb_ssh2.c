@@ -35,7 +35,7 @@ static unsigned long hb_ssh2_getAddr( const char *szName )
    return ulAddr;
 }
 
-int hb_ssh2_WaitSocket( int socket_fd, LIBSSH2_SESSION * session )
+int hb_ssh2_WaitSocket( HB_SSH2_SESSION * pSess )
 {
    struct timeval timeout;
    int rc;
@@ -44,15 +44,15 @@ int hb_ssh2_WaitSocket( int socket_fd, LIBSSH2_SESSION * session )
    fd_set *readfd = NULL;
    int dir;
 
-   timeout.tv_sec = 10;
-   timeout.tv_usec = 0;
+   timeout.tv_sec = pSess->timeout.tv_sec;
+   timeout.tv_usec = pSess->timeout.tv_usec;
 
    FD_ZERO( &fd );
 
-   FD_SET( socket_fd, &fd );
+   FD_SET( pSess->sock, &fd );
 
    /* now make sure we wait in the correct direction */
-   dir = libssh2_session_block_directions( session );
+   dir = libssh2_session_block_directions( pSess->session );
 
    if( dir & LIBSSH2_SESSION_BLOCK_INBOUND )
       readfd = &fd;
@@ -60,7 +60,7 @@ int hb_ssh2_WaitSocket( int socket_fd, LIBSSH2_SESSION * session )
    if( dir & LIBSSH2_SESSION_BLOCK_OUTBOUND )
       writefd = &fd;
 
-   rc = select( socket_fd + 1, readfd, writefd, NULL, &timeout );
+   rc = select( pSess->sock + 1, readfd, writefd, NULL, &(timeout) );
 
    return rc;
 }
@@ -74,6 +74,9 @@ HB_SSH2_SESSION *hb_ssh2_Connect( const char *hostname, int iPort, int iNonBlock
    int rc;
 
    memset( pSess, 0, sizeof( HB_SSH2_SESSION ) );
+
+   pSess->timeout.tv_sec = 1;
+   pSess->timeout.tv_usec = 0;
 
    if( !iSsh2Init )
    {
@@ -198,7 +201,7 @@ int hb_ssh2_ChannelOpen( HB_SSH2_SESSION * pSess )
    {
       if( pCallback && !pCallback( pSess ) )
          break;
-      hb_ssh2_WaitSocket( pSess->sock, pSess->session );
+      hb_ssh2_WaitSocket( pSess );
    }
    pSess->iRes = ( pSess->channel == NULL );
    pSess->iErr = libssh2_session_last_errno( pSess->session );
@@ -211,7 +214,7 @@ void hb_ssh2_ChannelClose( HB_SSH2_SESSION * pSess )
    if( !pSess->channel )
       return;
    while( libssh2_channel_close( pSess->channel ) == LIBSSH2_ERROR_EAGAIN )
-      hb_ssh2_WaitSocket( pSess->sock, pSess->session );
+      hb_ssh2_WaitSocket( pSess );
 #if 0
    {
       int exitcode = 127;
@@ -245,7 +248,7 @@ int hb_ssh2_Exec( HB_SSH2_SESSION * pSess, const char *commandline )
    {
       if( pCallback && !pCallback( pSess ) )
          break;
-      hb_ssh2_WaitSocket( pSess->sock, pSess->session );
+      hb_ssh2_WaitSocket( pSess );
    }
    if( rc != 0 )
    pSess->iRes = ( rc != 0 )? -1 : 0;
@@ -296,7 +299,7 @@ char * hb_ssh2_ChannelRead( HB_SSH2_SESSION * pSess )
       {
          if( pCallback && !pCallback( pSess ) )
             break;
-         hb_ssh2_WaitSocket( pSess->sock, pSess->session );
+         hb_ssh2_WaitSocket( pSess );
       }
       else
          break;
@@ -305,6 +308,34 @@ char * hb_ssh2_ChannelRead( HB_SSH2_SESSION * pSess )
    pSess->iRes = ( rc != 0 )? -1 : 0;
    pSess->iErr = libssh2_session_last_errno( pSess->session );
    return pOut;
+}
+
+int hb_ssh2_ChannelWrite( HB_SSH2_SESSION * pSess, char *buffer, int iBufferLen )
+{
+   int rc, iWritten = 0;
+   char * ptr = buffer;
+
+   pSess->iInfo = 3;
+   do {
+       while((rc = libssh2_channel_write( pSess->channel, ptr, iBufferLen )) ==
+             LIBSSH2_ERROR_EAGAIN) {
+         if( pCallback && !pCallback( pSess ) )
+            break;
+         hb_ssh2_WaitSocket( pSess );
+       }
+       if( rc < 0 )
+           break;
+       else
+       {
+           iBufferLen -= rc;
+           ptr += rc;
+           iWritten += rc;
+       }
+   } while( iBufferLen > 0 );
+
+   pSess->iRes = ( rc < 0 )? -1 : 0;
+   return iWritten;
+
 }
 
 int hb_ssh2_SftpInit( HB_SSH2_SESSION * pSess )
@@ -316,7 +347,7 @@ int hb_ssh2_SftpInit( HB_SSH2_SESSION * pSess )
    {
       if( pCallback && !pCallback( pSess ) )
          break;
-      hb_ssh2_WaitSocket( pSess->sock, pSess->session );
+      hb_ssh2_WaitSocket( pSess );
    }
    pSess->iRes = ( pSess->sftp_session == NULL );
    pSess->iErr = libssh2_sftp_last_error( pSess->sftp_session );
@@ -342,7 +373,7 @@ HB_SSH2_SFTP_HANDLE * hb_ssh2_SftpOpenDir( HB_SSH2_SESSION * pSess, const char *
    {
       if( pCallback && !pCallback( pSess ) )
          break;
-      hb_ssh2_WaitSocket( pSess->sock, pSess->session );
+      hb_ssh2_WaitSocket( pSess );
    }
 
    if( sftp_handle ) {
@@ -367,7 +398,7 @@ HB_SSH2_SFTP_HANDLE * hb_ssh2_SftpOpenFile( HB_SSH2_SESSION * pSess, const char 
    {
       if( pCallback && !pCallback( pSess ) )
          break;
-      hb_ssh2_WaitSocket( pSess->sock, pSess->session );
+      hb_ssh2_WaitSocket( pSess );
    }
 
    if( sftp_handle ) {
@@ -399,7 +430,7 @@ int hb_ssh2_SftpMkDir( HB_SSH2_SESSION * pSess, const char *sftppath, long lMode
    {
       if( pCallback && !pCallback( pSess ) )
          break;
-      hb_ssh2_WaitSocket( pSess->sock, pSess->session );
+      hb_ssh2_WaitSocket( pSess );
    }
 
    return rc;
@@ -416,7 +447,7 @@ int hb_ssh2_SftpReadDir( HB_SSH2_SFTP_HANDLE * pHandle, char *cName, int iLen,
    {
       if( pCallback && !pCallback( pHandle->pSess ) )
          break;
-      hb_ssh2_WaitSocket( pHandle->pSess->sock, pHandle->pSess->session );
+      hb_ssh2_WaitSocket( pHandle->pSess );
    }
 
    if( rc )
@@ -448,7 +479,7 @@ int hb_ssh2_SftpRead( HB_SSH2_SFTP_HANDLE * pHandle, char *buffer, int nBufferLe
          {
             if( pCallback && !pCallback( pHandle->pSess ) )
                break;
-            hb_ssh2_WaitSocket( pHandle->pSess->sock, pHandle->pSess->session );
+            hb_ssh2_WaitSocket( pHandle->pSess );
          }
    }
    while( ( pHandle->pSess->iNonBlocking && rc == LIBSSH2_ERROR_EAGAIN ) ||
@@ -475,7 +506,7 @@ int hb_ssh2_SftpWrite( HB_SSH2_SFTP_HANDLE * pHandle, char *buffer, int nBufferL
       {
          if( pCallback && !pCallback( pHandle->pSess ) )
             break;
-         hb_ssh2_WaitSocket( pHandle->pSess->sock, pHandle->pSess->session );
+         hb_ssh2_WaitSocket( pHandle->pSess );
       }
       else if( rc < 0 )
          break;
@@ -502,7 +533,7 @@ int hb_ssh2_SftpStat( HB_SSH2_SESSION * pSess, char *cPath, int iStat_type, LIBS
    {
       if( pCallback && !pCallback( pSess ) )
          break;
-      hb_ssh2_WaitSocket( pSess->sock, pSess->session );
+      hb_ssh2_WaitSocket( pSess );
    }
    pSess->iRes = ( rc < 0 )? -1 : 0;
    return rc;
@@ -689,7 +720,7 @@ HB_FUNC( SSH2_CHANNEL_READ )
       {
          if( pCallback && !pCallback( pSess ) )
             break;
-         hb_ssh2_WaitSocket( pSess->sock, pSess->session );
+         hb_ssh2_WaitSocket( pSess );
       }
       else
          break;
@@ -699,8 +730,39 @@ HB_FUNC( SSH2_CHANNEL_READ )
       hb_retclen_buffer( pOut, iBytesReadAll );
    else
       hb_ret();
-
 }
+
+HB_FUNC( SSH2_CHANNEL_READRAW )
+{
+   HB_SSH2_SESSION *pSess = ( HB_SSH2_SESSION * ) hb_parptr( 1 );
+   char buffer[BUFFSIZE];
+   int rc;
+
+   pSess->iInfo = 3;
+   rc = libssh2_channel_read( pSess->channel, buffer, BUFFSIZE );
+   if( rc <= 0 )
+      rc = libssh2_channel_read_stderr( pSess->channel, buffer, BUFFSIZE );
+
+   if( rc == LIBSSH2_ERROR_EAGAIN )
+      hb_ssh2_WaitSocket( pSess );
+
+   if( rc > 0 )
+      hb_retclen( buffer, rc );
+   else if( rc == 0 || rc == LIBSSH2_ERROR_EAGAIN )
+      hb_retc( "" );
+   else
+      hb_ret();
+}
+
+HB_FUNC( SSH2_CHANNEL_WRITE )
+{
+   int iWrite = ( hb_pcount() > 2 && HB_ISNUM(3) )? hb_parni( 3 ) : hb_parclen(2);
+   int iBytesWritten;
+
+   iBytesWritten = hb_ssh2_ChannelWrite( ( HB_SSH2_SESSION * ) hb_parptr( 1 ), (char*) hb_parc(2), iWrite );
+   hb_retni( iBytesWritten );
+}
+
 
 HB_FUNC( SSH2_SFTP_READ )
 {
@@ -733,10 +795,9 @@ HB_FUNC( SSH2_SFTP_READRAW )
    char buffer[BUFFSIZE];
    int rc;
 
-   rc = libssh2_sftp_read( pHandle->sftp_handle,
-      buffer, BUFFSIZE );
+   rc = libssh2_sftp_read( pHandle->sftp_handle, buffer, BUFFSIZE );
    if( rc == LIBSSH2_ERROR_EAGAIN )
-      hb_ssh2_WaitSocket( pHandle->pSess->sock, pHandle->pSess->session );
+      hb_ssh2_WaitSocket( pHandle->pSess );
    hb_storni( rc, 2 );
    if( rc > 0 )
       hb_retclen( buffer, rc );
@@ -782,10 +843,18 @@ HB_FUNC( SSH2_SFTP_STAT )
 
 HB_FUNC( SSH2_SFTP_FSTAT )
 {
+   HB_SSH2_SFTP_HANDLE * pHandle = (HB_SSH2_SFTP_HANDLE *) hb_parptr(1);
    int rc;
    LIBSSH2_SFTP_ATTRIBUTES attrs;
 
-   rc = libssh2_sftp_fstat( ((HB_SSH2_SFTP_HANDLE *) hb_parptr(1))->sftp_handle, &attrs );
+   //rc = libssh2_sftp_fstat( pHandle->sftp_handle, &attrs );
+   pHandle->pSess->iInfo = 58;
+   while( ( rc = libssh2_sftp_fstat( pHandle->sftp_handle, &attrs ) ) == LIBSSH2_ERROR_EAGAIN )
+   {
+      if( pCallback && !pCallback( pHandle->pSess ) )
+         break;
+      hb_ssh2_WaitSocket( pHandle->pSess );
+   }
 
    if( rc == 0 )
    {
@@ -868,6 +937,15 @@ HB_FUNC( SSH2_GETINFO )
       hb_retni( ( ( HB_SSH2_SESSION * ) hb_parptr( 1 ) )->iInfo );
    else
       hb_retnl( ( ( HB_SSH2_SESSION * ) hb_parptr( 1 ) )->lInfo );
+}
+
+HB_FUNC( SSH2_TIMEOUT )
+{
+   HB_SSH2_SESSION *pSess = ( HB_SSH2_SESSION * ) hb_parptr( 1 );
+
+   pSess->timeout.tv_sec = hb_parni(2);
+   pSess->timeout.tv_usec = hb_parni(3);
+
 }
 
 #endif

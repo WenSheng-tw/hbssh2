@@ -1,3 +1,8 @@
+/*
+ * Sample showing command execution on remote server via SFTP
+ *  using non-blocking io
+ */
+
 FUNCTION Main( cAddr, cCmd )
 
    LOCAL pSess, nPort, cLogin, cPass, nPos
