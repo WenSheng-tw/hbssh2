@@ -14,24 +14,28 @@ REQUEST HB_CODEPAGE_RU866
 FUNCTION Main( cAddr, cProgram )
 
    LOCAL pSess, nPort, cLogin, cPass, nPos
-   LOCAL xRes, nColInit, cmd := "", nKeyExt
+   LOCAL xRes, nColInit, cmd := "", nKeyExt, nKey
 
    IF cAddr == Nil
-      ACCEPT "Address:" TO cAddr
+      Outstd( Chr(10) + "Address: " )
+      cAddr := Getline()
    ENDIF
-   IF cAddr == Nil
+   IF Empty( cAddr )
       RETURN Nil
    ENDIF
 
    IF cProgram == Nil
-      ACCEPT "Command (default: uptime):" TO cProgram
+      Outstd( Chr(10) + "Command (default: uptime):" )
+      cProgram := Getline()
    ENDIF
    IF Empty(cProgram)
       cProgram := "uptime"
    ENDIF
 
-   ACCEPT "Login:" TO cLogin
-   ACCEPT "Password:" TO cPass
+   Outstd( Chr(10) + "Login:" )
+   cLogin := Getline()
+   Outstd( Chr(10) + "Password:" )
+   cPass := Getline()
 
    IF ( nPos := At( ':', cAddr ) ) > 0
       nPort := Val( Substr( cAddr,nPos+1 ) )
@@ -41,19 +45,19 @@ FUNCTION Main( cAddr, cProgram )
    pSess := ssh2_Connect( cAddr, nPort, .T. )
 
    IF ssh2_LastRes( pSess ) != 0
-      ? "Connection error"
+      Outstd( Chr(10) + "Connection error" )
       ssh2_Close( pSess )
       RETURN Nil
    ELSE
-      ? "Connected"
+      Outstd( Chr(10) +  "Connected" )
    ENDIF
 
    ssh2_Timeout( pSess, 0, 10000 )
 
    IF ssh2_Login( pSess, cLogin, cPass )
-      ? "Login - Ok"
+      Outstd( Chr(10) +  "Login - Ok" )
    ELSE
-      ? "Can't login..."
+      Outstd( Chr(10) +  "Can't login..." )
       ssh2_Close( pSess )
       RETURN Nil
    ENDIF
@@ -61,41 +65,47 @@ FUNCTION Main( cAddr, cProgram )
    ssh2_Channel_Open( pSess )
 
    IF ssh2_LastRes( pSess ) != 0
-      ? "OpenChannel failed"
+      Outstd( Chr(10) +  "OpenChannel failed" )
       RETURN Nil
    ENDIF
 
+   ssh2_Channel_Pty( pSess, "xterm" )
+
    ssh2_Exec( pSess, cProgram )
    IF ssh2_LastRes( pSess ) != 0
-      ? "Exec failed"
+      Outstd( Chr(10) +  "Exec failed" )
       RETURN Nil
    ENDIF
 
    DevPos( Maxrow(), nColInit := 0 )
-   ? "> " + cProgram
+   Outstd( Chr(10) +  "> " + cProgram )
    writelog( "start " + cProgram )
 
    DO WHILE ( xRes := ssh2_Channel_ReadRaw( pSess ) ) != Nil
       writelog( ltrim(str(seconds())) + ": " + valtype(xRes) )
       IF !Empty( xRes )
-         ?? xRes
+         Outstd( xRes )
          nColInit := Col()
          cmd := ""
          writelog( xres )
          writelog( "-----" )
       ENDIF
       nKeyExt := Inkey( 0.05, INKEY_KEYBOARD + HB_INKEY_EXT )
+      nKey := hb_keyStd( nKeyExt )
       IF nKeyExt == 0
          LOOP
-      ELSEIF hb_keyStd( nKeyExt ) == K_ESC
+      ELSEIF nKey == K_ESC
          EXIT
-      ELSEIF hb_keyStd( nKeyExt ) == K_ENTER
+      ELSEIF nKey == K_ENTER
          ssh2_Channel_Write( pSess, cmd + hb_eol() )
          cmd := ""
-         ?
+         Outstd( Chr(10) )
          nColInit := Col()
-      ELSE
-         cmd := ProcessKey( nColInit, cmd, nKeyExt )
+      ELSEIF nKey >= 32 .AND. nKey <= 250
+         cmd += Chr( nKey )
+         Outstd( nKey )
+      //ELSE
+      //   cmd := ProcessKey( nColInit, cmd, nKeyExt )
       ENDIF
    ENDDO
 
@@ -163,6 +173,27 @@ STATIC FUNCTION ProcessKey( nColInit, cRes, nKeyExt, bKeys )
       ENDIF
    ENDIF
    DevPos( nRow, nColInit + nPos - 1 )
+
+   RETURN cRes
+
+STATIC FUNCTION GetLine()
+
+   LOCAL cRes := "", nKey
+
+   DO WHILE .T.
+      nKeyExt := Inkey( 0, INKEY_KEYBOARD + HB_INKEY_EXT )
+      nKey := hb_keyStd( nKeyExt )
+      IF nKeyExt == 0
+         LOOP
+      ELSEIF nKey == K_ESC
+         RETURN ""
+      ELSEIF nKey == K_ENTER
+         RETURN cRes
+      ELSEIF nKey >= 32 .AND. nKey <= 250
+         cRes += Chr( nKey )
+         Outstd( Chr(nKey) )
+      ENDIF
+   ENDDO
 
    RETURN cRes
 
