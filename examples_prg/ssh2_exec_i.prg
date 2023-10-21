@@ -71,7 +71,8 @@ FUNCTION Main( cAddr, cProgram )
 
    ssh2_Channel_Pty( pSess, "xterm" )
 
-   ssh2_Exec( pSess, cProgram )
+   //ssh2_Exec( pSess, cProgram )
+   ssh2_Channel_Shell( pSess )
    IF ssh2_LastRes( pSess ) != 0
       Outstd( Chr(10) +  "Exec failed" )
       RETURN Nil
@@ -97,13 +98,15 @@ FUNCTION Main( cAddr, cProgram )
       ELSEIF nKey == K_ESC
          EXIT
       ELSEIF nKey == K_ENTER
-         ssh2_Channel_Write( pSess, cmd + hb_eol() )
-         cmd := ""
-         Outstd( Chr(10) )
+         ssh2_Channel_Write( pSess, hb_eol() )
+         //ssh2_Channel_Write( pSess, cmd + hb_eol() )
+         //cmd := ""
+         //Outstd( Chr(10) )
          nColInit := Col()
       ELSEIF nKey >= 32 .AND. nKey <= 250
-         cmd += Chr( nKey )
-         Outstd( nKey )
+         //cmd += Chr( nKey )
+         //Outstd( nKey )
+         ssh2_Channel_Write( pSess, Chr(nKey) )
       //ELSE
       //   cmd := ProcessKey( nColInit, cmd, nKeyExt )
       ENDIF

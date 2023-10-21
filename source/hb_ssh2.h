@@ -80,6 +80,8 @@ void hb_ssh2_ChannelClose( HB_SSH2_SESSION * );
 int hb_ssh2_Exec( HB_SSH2_SESSION *, const char * );
 char * hb_ssh2_ChannelRead( HB_SSH2_SESSION * );
 int hb_ssh2_ChannelWrite( HB_SSH2_SESSION *, char *, int );
+int hb_ssh2_ChannelPty( HB_SSH2_SESSION *, const char * );
+int hb_ssh2_ChannelShell( HB_SSH2_SESSION * );
 int hb_ssh2_SftpInit( HB_SSH2_SESSION * );
 void hb_ssh2_SftpShutDown( HB_SSH2_SESSION * );
 HB_SSH2_SFTP_HANDLE * hb_ssh2_SftpOpenDir( HB_SSH2_SESSION *, const char * );
